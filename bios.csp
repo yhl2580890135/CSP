@@ -1,0 +1,224 @@
+﻿channel CE 0;
+channel CE_Reply 0;
+
+channel CEx 0;
+channel CEx_Reply 0;
+
+channel SE 0;
+channel SE_Reply 0;
+
+channel ClE 0;
+channel ClE_Reply 0;
+
+channel WE 0;
+channel WE_Reply 0;
+
+channel ChE 0;
+channel ChE_Reply 0;
+
+channel AP 0;
+channel AP_Reply 0;
+
+channel FP 0;
+channel FP_Reply 0;
+
+channel LH 0;
+channel LH_Reply 0;
+
+channel LHB 0;
+channel LHB_Reply 0;
+
+channel LDP 0;
+channel LDP_Reply 0;
+
+channel LP 0;
+channel LP_Reply 0;
+
+
+#define buffersize1 10;
+#define buffersize2 20;
+
+#define TPL_APPLICATION 4;
+#define TPL_CALLBACK 8;
+#define TPL_NOTIFY 16;
+#define TPL_HIGH_LEVEL 31;
+var CurrentTpl;
+
+enum{Null};
+
+enum {handle1,handle2};
+var handles[2] =[handle1,handle2];
+# define handlecount 2;
+
+enum {event1,event2,event3,event4};
+var events[4]=[event1,event2,event3,event4];
+var UserEvents[3]=[event1,event2,event3];
+#define NumberOfEvents 3;
+
+enum{buffer1,buffer2};
+enum{protocol1,protocol2};
+enum{searchkey1,searchkey2};
+enum{ByRegisterNotify,ByProtocol,AllHandles};
+
+enum{dp1,dp2};
+enum{d1,d2};
+
+enum{interface1,interface2};
+enum{registration};
+
+enum{EfiEventEmptyFunction};
+enum{gEfiEventDxeDispatchGuid,DxeDispatchEvent};
+//状态
+var Status;
+var PoolType;
+var Event;
+var EventSize;
+var UserIndex;
+var index=0;
+enum {InvalidParameter,NotFound,OutOfResource,BufferTooSmall,Success,Unsupported,NotReady};
+enum{successed,failed};
+
+var gDispatcherRunning = true;
+var hobstart =1;
+
+enum {EVT_TIMER,EVT_RUNTIME,EVT_NOTIFY_WAIT,EVT_NOTIFY_SIGNAL,EVT_SIGNAL_EXIT_BOOT_SERVICES,EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE,INVALID};
+
+enum{EfiMaxMemoryType,EfiConventionalMemory,EfiPersistentMemory};
+#define MEMORY_TYPE_OEM_RESEARVED_MAX 100000;
+#define MEMORY_TYPE_OEM_RESEARVED_MIN 100;
+#define MaxPoolSize 100000;
+
+CreatEvent() =CE?type.notifytpl.notifyfunction.notifycontext.event->
+CEx!type.notifytpl.notifyfunction.notifycontext.Null.event->
+CEx_Reply?x->if(x==Success)
+	{{Status=successed;}->CE_Reply!x->Skip}
+else
+	{{Status=failed;}->CE_Reply!x->Skip};
+
+CreatEventEx()=CEx?type.notifytpl.notifyfunction.notifycontext.eventgroup.event->
+if(event==Null)
+		{CEx_Reply!InvalidParameter->Skip}
+else if(type!=EVT_TIMER&&type!=EVT_RUNTIME&&type!=EVT_NOTIFY_WAIT&&type!=EVT_NOTIFY_SIGNAL&&type!=EVT_SIGNAL_EXIT_BOOT_SERVICES&&type!=EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE)
+		{CEx_Reply!InvalidParameter->Skip}
+else if(eventgroup!=Null){
+		if(type==EVT_SIGNAL_EXIT_BOOT_SERVICES||type==EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE)
+			{CEx_Reply!InvalidParameter->Skip}}
+else if(type==EVT_NOTIFY_WAIT||type==EVT_NOTIFY_SIGNAL)
+{
+	if(notifytpl!=TPL_APPLICATION&&notifytpl!=TPL_CALLBACK&&notifytpl!=TPL_NOTIFY)
+		{CEx_Reply!InvalidParameter->Skip}
+	else if((notifyfunction==Null)||(notifytpl<=TPL_APPLICATION)||(notifytpl>=TPL_HIGH_LEVEL))
+			{CEx_Reply!InvalidParameter->Skip}
+	else{ 
+ 	   AP!PoolType.EventSize.event->AP_Reply?x->CEx_Reply!x->Skip
+		
+}};
+
+
+SignalEvent()=SE?UserEvent->
+if(UserEvent==Null)
+	{{Status=failed;}->SE_Reply!InvalidParameter->Skip}
+else
+	{{Status=successed;}->SE_Reply!Success->Skip};
+	
+
+
+WaitForEvent()=WE?numberOfEvents.userEvents.userIndex->
+if(CurrentTpl!=TPL_APPLICATION||numberOfEvents==0||userEvents==Null)
+	{{Status=failed;}->WE_Reply!InvalidParameter->Skip}
+else {
+	WE_Reply!Success->Skip
+};
+
+
+CheckEvent()=ChE?UserEvent->
+if(UserEvent==Null){ChE_Reply!InvalidParameter->Skip}
+else {{Status=successed;}->WE_Reply!Success->Skip[]{Status=failed;}->WE_Reply!NotReady->Skip};
+
+CloseEvent()=CE?UserEvent->
+if(UserEvent==Null)
+	{{Status=failed;}->ClE_Reply!InvalidParameter->Skip}
+else
+	{FP!UserEvent->FP_Reply?x->
+			if(x==Success){ClE_Reply!Success->Skip}
+			else
+			{ClE_Reply!InvalidParameter->Skip}
+	};	
+
+AllocatePool()=AP?pooltype.size.buffer->
+if((pooltype>=EfiMaxMemoryType&&pooltype<=MEMORY_TYPE_OEM_RESEARVED_MIN)
+||(pooltype==EfiConventionalMemory||pooltype==EfiPersistentMemory))
+	{{Status=failed;}->AP_Reply!InvalidParameter->Skip}
+else if(buffer==Null)
+	{{Status=failed;}->AP_Reply!InvalidParameter->Skip}
+else if(size>MaxPoolSize)
+	{{Status=failed;}->AP_Reply!OutOfResource->Skip}
+else
+	{{Status=successed;}->AP_Reply!Success->Skip};
+
+
+FreePool()=FP?Buffer->if(Buffer!=Null)
+{{Status=failed;}->FP_Reply!Success->Skip}
+else {Skip};
+
+
+
+LocateHandle()= LH?SearchType.Protocol.Searchkey.BufferSize.Buffer->
+if(Buffer == Null||BufferSize == 0)
+	{LH_Reply!InvalidParameter->Skip}
+else if((SearchType==ByRegisterNotify&&Searchkey==Null)
+||(SearchType==ByProtocol&&Protocol==Null))
+	{LH_Reply!InvalidParameter->Skip}
+else{LH_Reply!Success->Skip};
+
+LocateHandleBuffer()=LHB?SearchType.Protocol.Searchkey.NumberHandles.Buffer->
+if(Buffer == Null||NumberHandles == Null)
+	{LHB_Reply!InvalidParameter->Skip}
+else{
+	[]bs:{buffersize1,buffersize2,0}@LH!SearchType.Protocol.Searchkey.bs.Buffer->LH_Reply?x->LHB_Reply!x->Skip
+};
+
+LocateDevicePath()=LDP?Protocol.DecivePath.Device->
+if(Protocol==Null||DecivePath==Null||Device==Null)
+	{LDP_Reply!InvalidParameter->Skip}
+else{
+	LHB!ByProtocol.Protocol.Null.handlecount.handles->
+	LHB_Reply?Success->LP!Success->FP!handles->FP_Reply?Success->
+	LDP_Reply!Success->Skip};
+
+LocateProtocol()=LP?Interface.Protocol.Registration->
+if(Interface==Null||Protocol==Null)
+{LDP_Reply!InvalidParameter->Skip}
+else{
+	LP_Reply!Success->Locate()[]LP_Reply!NotFound->Skip
+};
+
+
+EventModel()=[]t:{EVT_TIMER,EVT_RUNTIME,EVT_NOTIFY_WAIT,EVT_NOTIFY_SIGNAL,EVT_SIGNAL_EXIT_BOOT_SERVICES,EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE,INVALID}@
+([]tpl:{0..32}@([]e:{event1,event2,event3,event4,Null}@
+CE!t.tpl.e->CreatEvent()))||CreatEventEx()||WE!NumberOfEvents.UserEvents.UserIndex->WaitForEvent()||[]e1:{event1,event2,event3,event4,Null}@SE!e1->SignalEvent()||[]e2:{event1,event2,event3,event4,Null}@ChE!e2->CheckEvent()||[]e3:{event1,event2,event3,event4,Null}@ClE!e3->CloseEvent();
+
+Locate()=[]st:{ByRegisterNotify,ByProtocol,AllHandles}@([]p:{protocol1,protocol2,Null}@([]sk:{searchkey1,searchkey2,Null}@([]b:{buffer1,buffer2,Null}@([]bs:{buffersize1,buffersize2,0}@LH!st.p.sk.bs.b->LocateHandle()))))||LocateHandleBuffer()||
+[]p1:{protocol1,protocol2,Null}@([]dp:{dp1,dp2}@([]d:{d1,d2}@LDP!p1.dp.d->LocateDevicePath()))||[]it:{interface1,interface2,Null}@([]p2:{protocol1,protocol2,Null}@LDP!it.p2.registration->LocateProtocol());
+
+
+
+Dispatcher()=if(gDispatcherRunning==false){{Status=failed}->Skip}
+else{CEx!EVT_NOTIFY_SIGNAL.TPL_NOTIFY.EfiEventEmptyFunction.Null.gEfiEventDxeDispatchGuid.DxeDispatchEvent->CEx_Reply?x->if(x!=Success){
+SE!DxeDispatchEvent->Bios()}
+};
+
+DxeMain()=if(hobstart!=Null){Dispatcher()}else{Skip};
+
+Pool()=AllocatePool()||FreePool();
+
+Bios()=EventModel()||Locate()||Pool()||Dispatcher()||DxeMain();
+
+
+//系统最终会处于两种状态：successed or failed
+#define pro1 Status == successed||Status == failed; 
+#assert Bios |=[]pro1;
+
+#assert Bios nonterminating;
+
+#assert Bios deterministic;
