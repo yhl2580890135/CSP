@@ -1,0 +1,196 @@
+﻿channel CE 0;
+channel CE_Reply 0;
+
+channel CEx 0;
+channel CEx_Reply 0;
+
+channel SE 0;
+channel SE_Reply 0;
+
+channel ClE 0;
+channel ClE_Reply 0;
+
+channel WE 0;
+channel WE_Reply 0;
+
+channel ChE 0;
+channel ChE_Reply 0;
+
+channel LH 0;
+channel LH_Reply 0;
+
+channel LHB 0;
+channel LHB_Reply 0;
+
+channel LDP 0;
+channel LDP_Reply 0;
+
+channel LP 0;
+channel LP_Reply 0;
+
+channel AP 0;
+channel AP_Reply 0;
+
+channel FP 0;
+channel FP_Reply 0;
+
+#define TplApplication 4;
+#define TplCallBack 8;
+#define TplNotify 12;
+#define TplHighLevel 16;
+var EfiCurrentTpl = TplApplication;
+
+#define MaxBufferSize 100;
+#define MaxPoolSize 100;
+#define EventSize 10;
+
+
+# define EfiMaxMemoryType 1000;
+# define EfiConventionalMemory 100;
+# define EfiPersistentMemory 10;
+# define MemoryTypeOemReseredMin 0;
+ 
+
+enum {InvalidParameter,NotFound,OutOfResource,BufferTooSmall,Success,Unsupported};
+
+enum {handle1,handle2};
+var handles[2] =[handle1,handle2];
+# define handlecount 2;
+
+enum {Null};
+enum {event1,event2,event3};
+var events[3]=[event1,event2,event3];
+#define numOfevents 3;
+
+enum{searchkey1,searchkey2};
+enum{ByRegisterNotify,ByProtocol,AllHandles};
+
+enum {EVT_TIMER,EVT_RUNTIME,EVT_NOTIFY_WAIT,EVT_NOTIFY_SIGNAL,
+EVT_SIGNAL_EXIT_BOOT_SERVICES,EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE,
+INVALID,INVALID_TYPE};
+
+enum{gEfiEventExitBootServiceGuid,gEfiEventVirtualAdressChangeGuid,other};
+
+
+
+
+
+CreatEvent()=CE?Type.NotifyTpl.Event->
+		CEx!Type.NotifyTpl.Null.Event->
+		CEx_Reply?x->CE_Reply!x->EventModle();
+
+
+CreatEventEx()=CEx?Type.NotifyTpl.EventGroup.Event->
+if(Event==Null)
+	{CEx_Reply!InvalidParameter->Skip}
+else if(Type==INVALID_TYPE)
+	{CEx_Reply!InvalidParameter->Skip}
+else if((Type==EVT_NOTIFY_WAIT||Type==EVT_NOTIFY_SIGNAL)
+&&(NotifyTpl!=TplApplication&&NotifyTpl!=TplCallBack&&NotifyTpl!=TplNotify))
+	{CEx_Reply!InvalidParameter->Skip}
+else if(EventGroup!=Null&&
+(Type==EVT_SIGNAL_EXIT_BOOT_SERVICES||Type==EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE))
+	{CEx_Reply!InvalidParameter->Skip}
+else
+	{[]mType:{0..1000}@AP!mType.EventSize.Event->AP_Reply?x->
+				if(x==Success){CEx_Reply!Success->SE!Event->EventModle()[]
+				([]i:{0,1,2}@WE!numOfevents.events.i->EventModle())
+				[]ChE!Event->EventModle()[]ClE!Event->EventModle()}
+				else{CEx_Reply!OutOfResource->Skip}
+
+	};
+
+
+SignalEvent()=SE?UserEvent->
+if(UserEvent==Null)
+	{CE_Reply!InvalidParameter->Skip}
+else
+	{SE_Reply!Success->EventModle()};
+
+WaitForEvent()=WE?NumberOfEvents.UserEvents.UserIndex->
+if(EfiCurrentTpl!=TplApplication)
+	{WE_Reply!Unsupported->Skip;EventModle()}
+else if(NumberOfEvents==0||UserEvents==Null)
+	{WE_Reply!InvalidParameter->Skip;EventModle()}
+else {WE_Reply!Success->EventModle()};
+
+CheckEvent()=ChE?UserEvent->
+if(UserEvent==Null){ChE_Reply!InvalidParameter->Skip;EventModle()}
+else {WE_Reply!Success->EventModle()};
+
+CloseEvent()=CE?UserEvent->
+if(UserEvent==Null)
+	{ClE_Reply!InvalidParameter->Skip}
+else
+	{FP!UserEvent->FP_Reply?x->
+			if(x==Success){ClE_Reply!Success->EventModle()}
+			else
+			{ClE_Reply!InvalidParameter->Skip}
+	};
+
+AllocatePool()=AP?PoolType.Size.Buffer->
+if((PoolType>=EfiMaxMemoryType&&PoolType<=MemoryTypeOemReseredMin)
+||(PoolType==EfiConventionalMemory||PoolType==EfiPersistentMemory))
+	{AP_Reply!InvalidParameter->Skip}
+else if(Buffer==Null)
+	{AP_Reply!InvalidParameter->Skip}
+else if(Size>MaxPoolSize)
+	{AP_Reply!OutOfResource->Skip}
+else
+	{AP_Reply!Success->Skip};
+	
+	
+FreePool()=FP?Buffer->
+if(Buffer!=Null)
+{FP_Reply!Success->Skip}
+else {Skip};
+
+
+
+LocateHandle()= LH?SearchType.Protocol.Searchkey.BufferSize.Buffer->
+if(Buffer == Null||BufferSize == 0)
+	{LH_Reply!InvalidParameter->Skip}
+else if((SearchType==ByRegisterNotify&&Searchkey==Null)
+||(SearchType==ByProtocol&&Protocol==Null))
+	{LH_Reply!InvalidParameter->Skip}
+else{LH_Reply!Success->Locate()};
+
+LocateHandleBuffer()=LHB?SearchType.Protocol.Searchkey.NumberHandles.Buffer->
+if(Buffer == Null||NumberHandles == Null)
+	{LHB_Reply!InvalidParameter->Skip}
+else{
+	LH!SearchType.Protocol.Searchkey.MaxBufferSize.Buffer->LH_Reply?x->LHB_Reply!x->
+	Locate()
+};
+
+LocateDevicePath()=LDP?Protocol.DecivePath.Device->
+if(Protocol==Null||DecivePath==Null||Device==Null)
+	{LDP_Reply!InvalidParameter->Skip}
+else{
+	LHB!ByProtocol.Protocol.Null.handlecount.handles->
+	LHB_Reply?Success->LP!Success->FP!handles->FP_Reply?Success->
+	LDP_Reply!Success->Skip};
+
+LocateProtocol()=LP?Interface.Protocol.Registration->
+if(Interface==Null||Protocol==Null)
+{LDP_Reply!InvalidParameter->Skip}
+else{
+	LP_Reply!Success->Skip[]LP_Reply!NotFound->Skip
+};
+
+
+
+Pool()=AllocatePool()||FreePool();
+Locate()=LocateHandle()||LocateHandleBuffer()||LocateDevicePath()||LocateProtocol();
+DexMain()=Skip;
+Dispacher()=Skip;
+EventModle()=[]t:{EVT_TIMER,EVT_RUNTIME,EVT_NOTIFY_WAIT,EVT_NOTIFY_SIGNAL,
+EVT_SIGNAL_EXIT_BOOT_SERVICES,EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE,INVALID,INVALID_TYPE}@
+([]tpl:{0..17}@([]e:{event1,event2,event3,Null}@
+CE!t.tpl.e->CreatEvent()))||CreatEventEx()||CloseEvent()||SignalEvent()||WaitForEvent()||CheckEvent();
+
+Bios=EventModle()||Locate()||Pool()||DexMain()||Dispacher();
+
+#assert Bios deterministic; 
+
+
